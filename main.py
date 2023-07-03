@@ -49,8 +49,8 @@ apples = [Actor("apple") for i in range(len(trees)//2)]
 apples_model_pos = [[100000, 100000] for i in range(len(apples))]
 apples_collected = [False for i in range(len(apples))]
 inventoryslots = []
-for i in range(10):
-    inventoryslots.append([30*i, 750])
+for i in range(25):
+    inventoryslots.append([30*i+15, 700])
 for index, i in enumerate(apples):
     if randint(0, 1) == 1:
         apples_model_pos[index] = treepos[index]
@@ -68,6 +68,7 @@ class Inventory:
             item.x = self.slots[self.item_num][0]
             item.y = self.slots[self.item_num][1]
             self.items.append(item)
+            self.item_num += 1
         except Exception:
             self.drop(item, index)
 
@@ -89,6 +90,8 @@ def draw():
             i.x = apples_model_pos[index][0] + camerascrollx
             i.y = apples_model_pos[index][1] + camerascrolly
     for i in apples:
+        i.draw()
+    for i in inventory.items:
         i.draw()
 
 def update():
@@ -174,7 +177,6 @@ def update_rabbit():
             if not 0 < rabbit.y < HEIGHT or not 0 < rabbit.x < HEIGHT:
                 break
             sleep(1/30)
-                # print(saved_rabbit_pos)
 
 def update_counter():
     global timer
@@ -200,7 +202,6 @@ def pick_up_item(items_actors,entity, items_collected):
         if i.colliderect(entity):
             if entity == cat:
                 inventory.append(i, index)
-                print(inventory.items)
                 del items_actors[index]
             else:
                 i.image = "cursor"
