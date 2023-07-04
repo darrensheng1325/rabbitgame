@@ -2,6 +2,7 @@ from pgzrun import *
 from random import *
 from time import sleep
 from threading import Thread
+from pgzhelper import *
 HEIGHT = 750
 WIDTH = HEIGHT
 MAP_SIZE = 2700
@@ -44,16 +45,22 @@ timer = 2
 night_overlay = Actor("night_overlay")
 background_color = (0, 255, 255)
 night_color = (0, 0, 0)
-screen_background_color = (0, 255, 255)
+screen_background_color = "#80d402"
 apples = [Actor("apple") for i in range(len(trees)//2)]
 apples_model_pos = [[100000, 100000] for i in range(len(apples))]
 apples_collected = [False for i in range(len(apples))]
 inventoryslots = []
 for i in range(25):
-    inventoryslots.append([30*i+15, 700])
+    inventoryslots.append([30*i+15, HEIGHT-30])
 for index, i in enumerate(apples):
     if randint(0, 1) == 1:
         apples_model_pos[index] = treepos[index]
+grass_map = [Actor("grass") for i in range(400)]
+grass_map_model_pos = [[10000, 10000] for i in range(500)]
+for i in range(500):
+    grass_map_model_pos[i] = [randint(-MAP_SIZE, MAP_SIZE)]
+collision_map = Actor("collision_map")
+last_move = "l"
         
 class Inventory:
     def __init__ (self, slots, entity):
@@ -68,11 +75,13 @@ class Inventory:
             item.x = self.slots[self.item_num][0]
             item.y = self.slots[self.item_num][1]
             self.items.append(item)
-            self.item_num += 1
+            item_num += 1
         except Exception:
             self.drop(item, index)
 
 def draw():
+    global camerascrollx
+    global camerascrolly
     screen.fill(screen_background_color)
     water.draw()
     cat.draw()
@@ -93,6 +102,20 @@ def draw():
         i.draw()
     for i in inventory.items:
         i.draw()
+#    for index, i in enumerate(grass_map):
+#        i.x = grass_map_model_pos[index][0]
+#        i.y = grass_map_model_pos[index][1]
+    collision_map.x, collision_map.y = camerascrollx, camerascrolly
+    collision_map.draw()
+    if collision_map.collidepoint_pixel(HEIGHT/2, WIDTH/2):
+        if last_move == "l":
+            camerascrollx -= 90
+        if last_move == "r":
+            camerascrollx += 90
+        if last_move == "u":
+            camerascrolly -= 90
+        if last_move == "d":
+            camerascrolly += 90
 
 def update():
     global camerascrollx
@@ -115,14 +138,19 @@ def on_key_down(key):
     global camerascrolly
     global apples
     global apples_collected
+    global last_move
     if key == keys.UP:
         camerascrolly += 90
+        last_move = "u"
     if key == keys.DOWN:
         camerascrolly -= 90
+        last_move = "d"
     if key == keys.LEFT:
         camerascrollx += 90
+        last_move = "l"
     if key == keys.RIGHT:
         camerascrollx -= 90
+        last_move = "r"
     if key == keys.P:
         apples_data = pick_up_item(apples, cat, apples_collected)
         apples = apples_data[0]
@@ -177,6 +205,7 @@ def update_rabbit():
             if not 0 < rabbit.y < HEIGHT or not 0 < rabbit.x < HEIGHT:
                 break
             sleep(1/30)
+                # print(saved_rabbit_pos)
 
 def update_counter():
     global timer
@@ -202,6 +231,7 @@ def pick_up_item(items_actors,entity, items_collected):
         if i.colliderect(entity):
             if entity == cat:
                 inventory.append(i, index)
+                print(inventory.items)
                 del items_actors[index]
             else:
                 i.image = "cursor"
