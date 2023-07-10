@@ -46,6 +46,7 @@ night_overlay = Actor("night_overlay")
 background_color = (0, 255, 255)
 night_color = (0, 0, 0)
 screen_background_color = "#80d402"
+
 apples = [Actor("apple") for i in range(len(trees)//2)]
 apples_model_pos = [[100000, 100000] for i in range(len(apples))]
 apples_collected = [False for i in range(len(apples))]
@@ -55,10 +56,17 @@ for i in range(25):
 for index, i in enumerate(apples):
     if randint(0, 1) == 1:
         apples_model_pos[index] = treepos[index]
-grass_map = [Actor("grass") for i in range(400)]
-grass_map_model_pos = [[10000, 10000] for i in range(500)]
-for i in range(500):
-    grass_map_model_pos[i] = [randint(-MAP_SIZE, MAP_SIZE)]
+
+grass_map = []
+for grass in range(100):
+    grass = Actor('grass')
+    grass_map.append(grass)
+
+# grass_map = [Actor("grass") for i in range(5)]
+grass_map_model_pos = [[10000, 10000] for i in range(len(grass_map))]
+
+grass_map_model_pos = [[randint(-MAP_SIZE, MAP_SIZE),randint(-MAP_SIZE, MAP_SIZE)] for i in range(len(grass_map)) ]
+
 collision_map = Actor("collision_map")
 last_move = "l"
         
@@ -78,10 +86,12 @@ class Inventory:
             item_num += 1
         except Exception:
             self.drop(item, index)
+        
 
 def draw():
     global camerascrollx
     global camerascrolly
+    global grass_map
     screen.fill(screen_background_color)
     water.draw()
     cat.draw()
@@ -102,55 +112,58 @@ def draw():
         i.draw()
     for i in inventory.items:
         i.draw()
-#    for index, i in enumerate(grass_map):
-#        i.x = grass_map_model_pos[index][0]
-#        i.y = grass_map_model_pos[index][1]
+        
+    for index, i in enumerate(grass_map):
+        i.x = grass_map_model_pos[index][0] + camerascrollx
+        i.y = grass_map_model_pos[index][1] + camerascrolly
+    
+    for grass in grass_map:
+        grass.draw()
+        
     collision_map.x, collision_map.y = camerascrollx, camerascrolly
     collision_map.draw()
-    if collision_map.collidepoint_pixel(HEIGHT/2, WIDTH/2):
-        if last_move == "l":
-            camerascrollx -= 90
-        if last_move == "r":
-            camerascrollx += 90
-        if last_move == "u":
-            camerascrolly -= 90
-        if last_move == "d":
-            camerascrolly += 90
+    if collision_map.collidepoint_pixel(cat.left, WIDTH/2):
+            camerascrollx -= 5
+    if collision_map.collidepoint_pixel(cat.right, WIDTH/2):
+            camerascrollx += 5
+    if collision_map.collidepoint_pixel(WIDTH/2, cat.bottom):
+            camerascrolly += 5
+    if collision_map.collidepoint_pixel(HEIGHT/2, cat.top):
+            camerascrolly -= 5
+        
 
 def update():
-    global camerascrollx
-    global camerascrolly
+    
     global counter
     global saved_rabbit_pos
     global rabbit_dead
     global rabbit_health
+    update_input()
     for index, i in enumerate(trees):
         i.x = treepos[index][0] + camerascrollx
         i.y = treepos[index][1] + camerascrolly
     
     water.x = camerascrollx
     water.y = camerascrolly
+  
     game_clock.angle = timer / day_in_millis + 180
+    
+def update_input():
+    global camerascrollx
+    global camerascrolly
+    if keyboard.w:
+        camerascrolly += 5
+    if keyboard.a:
+        camerascrollx += 5
+    if keyboard.s:
+        camerascrolly -= 5
+    if keyboard.d:
+        camerascrollx -= 5
     
     
 def on_key_down(key):
-    global camerascrollx
-    global camerascrolly
     global apples
     global apples_collected
-    global last_move
-    if key == keys.UP:
-        camerascrolly += 90
-        last_move = "u"
-    if key == keys.DOWN:
-        camerascrolly -= 90
-        last_move = "d"
-    if key == keys.LEFT:
-        camerascrollx += 90
-        last_move = "l"
-    if key == keys.RIGHT:
-        camerascrollx -= 90
-        last_move = "r"
     if key == keys.P:
         apples_data = pick_up_item(apples, cat, apples_collected)
         apples = apples_data[0]
@@ -193,14 +206,15 @@ def update_rabbit():
                 rabbit_model_pos[0] += 3
             if rabbit_model_pos[0] > cat_model_pos[0]:
                 rabbit_model_pos[0] -= 3
-            if rabbit.colliderect(cat) and keyboard[keys.A]:
-                 rabbit_health -= 2
-                 rabbit_model_pos[0] -= 100
-            if rabbit_health == 0:
-                rabbit_dead = True
+            if rabbit.colliderect(cat) and keyboard[keys.SPACE]:
+                rabbit_health -= 2
+                print(rabbit_health)
+                rabbit_model_pos[0] -= 100
+            if rabbit_health <= 0:
                 rabbit_health = 10
                 rabbit.x = 10000
                 rabbitpos[counter]["has_rabbit"] = False
+                rabbit_dead = True
             saved_rabbit_pos = rabbit_model_pos
             if not 0 < rabbit.y < HEIGHT or not 0 < rabbit.x < HEIGHT:
                 break
