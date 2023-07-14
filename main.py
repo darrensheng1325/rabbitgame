@@ -3,6 +3,7 @@ from random import *
 from time import sleep
 from threading import Thread
 from pgzhelper import *
+from buttons import *
 HEIGHT = 750
 WIDTH = HEIGHT
 MAP_SIZE = 2700
@@ -46,21 +47,26 @@ night_overlay = Actor("night_overlay")
 background_color = (0, 255, 255)
 night_color = (0, 0, 0)
 screen_background_color = "#80d402"
-apples = [Actor("apple") for i in range(len(trees)//2)]
-apples_model_pos = [[100000, 100000] for i in range(len(apples))]
-apples_collected = [False for i in range(len(apples))]
+collectible_items = [Actor("apple") for i in range(len(trees)//2)]
+collectible_items_model_pos = [[100000, 100000] for i in range(len(collectible_items))]
+collectible_items_collected = [False for i in range(len(collectible_items))]
 inventoryslots = []
 for i in range(25):
     inventoryslots.append([30*i+15, HEIGHT-30])
-for index, i in enumerate(apples):
+for index, i in enumerate(collectible_items):
     if randint(0, 1) == 1:
-        apples_model_pos[index] = treepos[index]
+        collectible_items_model_pos[index] = treepos[index]
 grass_map = [Actor("grass") for i in range(400)]
 grass_map_model_pos = [[10000, 10000] for i in range(500)]
 for i in range(500):
     grass_map_model_pos[i] = [randint(-MAP_SIZE, MAP_SIZE)]
 collision_map = Actor("collision_map")
 last_move = "l"
+walkable_map = Actor("walkable_map")
+cat_health = 20
+max_cat_health = 20
+buttons = []
+game_over = False
         
 class Inventory:
     def __init__ (self, slots, entity):
@@ -78,52 +84,62 @@ class Inventory:
             item_num += 1
         except Exception:
             self.drop(item, index)
+class item(Actor):
+    def init(item_type, collected=False, hotbar_slot=0):
+        self.item_type = item_type
+        self.collected = collected
 
 def draw():
-    global camerascrollx
-    global camerascrolly
-    screen.fill(screen_background_color)
-    water.draw()
-    cat.draw()
-    for i in trees:
-        i.draw()
-    rabbit.x = rabbit_model_pos[0] + camerascrollx
-    rabbit.y = rabbit_model_pos[1] + camerascrolly
-    
-    if rabbit.colliderect(hud):
-        rabbit.draw()
-    game_clock.draw()
-    hud.draw()
-    for index, i in enumerate(apples):
-        if not apples_collected[index]:
-            i.x = apples_model_pos[index][0] + camerascrollx
-            i.y = apples_model_pos[index][1] + camerascrolly
-    for i in apples:
-        i.draw()
-    for i in inventory.items:
-        i.draw()
-#    for index, i in enumerate(grass_map):
-#        i.x = grass_map_model_pos[index][0]
-#        i.y = grass_map_model_pos[index][1]
-    collision_map.x, collision_map.y = camerascrollx, camerascrolly
-    collision_map.draw()
-    if collision_map.collidepoint_pixel(HEIGHT/2, WIDTH/2):
-        if last_move == "l":
-            camerascrollx -= 90
-        if last_move == "r":
-            camerascrollx += 90
-        if last_move == "u":
-            camerascrolly -= 90
-        if last_move == "d":
-            camerascrolly += 90
+    if not game_over:
+        global camerascrollx
+        global camerascrolly
+        screen.fill(screen_background_color)
+        walkable_map.pos = camerascrollx, camerascrolly
+        walkable_map.draw()
+        water.draw()
+        cat.draw()
+        for i in trees:
+            i.draw()
+        rabbit.x = rabbit_model_pos[0] + camerascrollx
+        rabbit.y = rabbit_model_pos[1] + camerascrolly
+        
+        if rabbit.colliderect(hud):
+            rabbit.draw()
+        game_clock.draw()
+        hud.draw()
+        for index, i in enumerate(collectible_items):
+            if not collectible_items_collected[index]:
+                i.x = collectible_items_model_pos[index][0] + camerascrollx
+                i.y = collectible_items_model_pos[index][1] + camerascrolly
+        for i in collectible_items:
+            i.draw()
+        for i in inventory.items:
+            i.draw()
+    #    for index, i in enumerate(grass_map):
+    #        i.x = grass_map_model_pos[index][0]
+    #        i.y = grass_map_model_pos[index][1]
+        collision_map.x, collision_map.y = camerascrollx, camerascrolly
+        collision_map.draw()
+        if collision_map.collidepoint_pixel(HEIGHT/2, WIDTH/2):
+            if last_move == "l":
+                camerascrollx -= 90
+            if last_move == "r":
+                camerascrollx += 90
+            if last_move == "u":
+                camerascrolly -= 90
+            if last_move == "d":
+                camerascrolly += 90
+        screen.draw.text(f"Health:{cat_health}",(60, 20))
+    else:
+        screen.draw.text("GAME OVER", (WIDTH//2, HEIGHT//2), fontsize=50)
+        retry_button.show()
+        retry_button.draw()
+    for i in buttons:
+        if not i[2].hidden:
+            i[2].draw()
 
 def update():
-    global camerascrollx
-    global camerascrolly
-    global counter
-    global saved_rabbit_pos
-    global rabbit_dead
-    global rabbit_health
+    global game_over
     for index, i in enumerate(trees):
         i.x = treepos[index][0] + camerascrollx
         i.y = treepos[index][1] + camerascrolly
@@ -131,6 +147,8 @@ def update():
     water.x = camerascrollx
     water.y = camerascrolly
     game_clock.angle = timer / day_in_millis + 180
+    if cat_health <= 0:
+        game_over = True
     
     
 def on_key_down(key):
@@ -152,7 +170,7 @@ def on_key_down(key):
         camerascrollx -= 90
         last_move = "r"
     if key == keys.P:
-        apples_data = pick_up_item(apples, cat, apples_collected)
+        apples_data = pick_up_item(collectible_items, cat, collectible_items_collected)
         apples = apples_data[0]
         apples_collected = apples_data[1]
         
@@ -164,6 +182,7 @@ def update_rabbit():
     global counter
     global rabbit_model_pos
     global rabbitpos
+    global cat_health
     while True:
         counter += 1
 #         cursor.x = rabbit.x + camerascrollx
@@ -173,8 +192,8 @@ def update_rabbit():
             counter = 0
 
         sleep(1/120)
-        rabbit_here = [rabbitpos[counter]["has_rabbit"]]
-        if not hud.colliderect(rabbit):
+        rabbit_here = rabbitpos[counter]["has_rabbit"]
+        if not hud.colliderect(rabbit) or not rabbit_here:
             rabbit_model_pos = [rabbitpos[counter]["x"], rabbitpos[counter]["y"]]
             saved_rabbit_pos = rabbit_model_pos
             continue
@@ -182,7 +201,7 @@ def update_rabbit():
             continue
         
         rabbit_model_pos = saved_rabbit_pos
-        while not rabbit_dead:
+        while rabbitpos[counter]["has_rabbit"] and not rabbit_dead:
             cat_model_pos = [cat.x - camerascrollx, cat.y - camerascrolly]
             # rabbit.pos = (saved_rabbit_pos[0], saved_rabbit_pos[1])
             if rabbit_model_pos[1] > cat_model_pos[1]:
@@ -193,14 +212,31 @@ def update_rabbit():
                 rabbit_model_pos[0] += 3
             if rabbit_model_pos[0] > cat_model_pos[0]:
                 rabbit_model_pos[0] -= 3
-            if rabbit.colliderect(cat) and keyboard[keys.A]:
-                 rabbit_health -= 2
-                 rabbit_model_pos[0] -= 100
+
+            def change_pos(index, amount):
+                rabbit_model_pos[index] += amount
+
+            if rabbit.colliderect(cat):
+                if keyboard.a:
+                    rabbit_health -= 2
+                    actions = {
+                        "l": lambda: change_pos(0, -100),
+                        "r": lambda: change_pos(0, 100),
+                        "u": lambda: change_pos(1, -100),
+                        "d": lambda: change_pos(1, 100),
+                    }
+                    actions[last_move]()
+                else:
+                    if randint(0, 25) == 0:
+                        cat_health -=2
+
+
             if rabbit_health == 0:
                 rabbit_dead = True
                 rabbit_health = 10
                 rabbit.x = 10000
                 rabbitpos[counter]["has_rabbit"] = False
+                break
             saved_rabbit_pos = rabbit_model_pos
             if not 0 < rabbit.y < HEIGHT or not 0 < rabbit.x < HEIGHT:
                 break
@@ -225,13 +261,20 @@ def update_counter():
             timer = 0
 
 inventory = Inventory(inventoryslots, inventoryactor)
+retry_button = Button("retry_button", (WIDTH//2, HEIGHT//2))
+
+def retry():
+    global game_over
+    global cat_health
+    cat_health = max_cat_health
+    game_over = False
+retry_button.onclick(retry)
 
 def pick_up_item(items_actors,entity, items_collected):
     for index, i in enumerate(items_actors):
         if i.colliderect(entity):
             if entity == cat:
                 inventory.append(i, index)
-                print(inventory.items)
                 del items_actors[index]
             else:
                 i.image = "cursor"
@@ -243,3 +286,4 @@ Thread(target=update_counter, daemon=True).start()
 
         
 go()
+quit()
