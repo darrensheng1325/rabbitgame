@@ -2,14 +2,24 @@ from pgzrun import *
 from random import *
 from time import sleep
 from threading import Thread
-from pgzhelper import *
 from buttons import *
+from sprite_groups import SpriteGroup
+from inventory import *
+from scoreboard import cat_health, check_game_over
+from player import max_cat_health
+from collision import move_collisions
+from clock import *
+from render_system_variables import MapPosition
+from pgzhelper import *
+
 HEIGHT = 750
 WIDTH = HEIGHT
 MAP_SIZE = 2700
+
+from player import cat, max_cat_health
+
 cursor = Actor("cursor")
 inventoryactor = Actor("inventory")
-cat = Actor("cat")
 hud = Actor("hud")
 trees = [Actor("tree") for i in range(150)]
 treepos = []
@@ -38,15 +48,6 @@ rabbit_health = 10
 rabbit.pos = (10000, 10000)
 rabbit_model_pos = [0, 0]
 cat_model_pos = [0, 0]
-game_clock = Actor("clock")
-game_clock.x = 25
-game_clock.y = 25
-day_in_millis = 100
-timer = 2
-night_overlay = Actor("night_overlay")
-background_color = (0, 255, 255)
-night_color = (0, 0, 0)
-screen_background_color = "#80d402"
 collectible_items = [Actor("apple") for i in range(len(trees)//2)]
 collectible_items_model_pos = [[100000, 100000] for i in range(len(collectible_items))]
 collectible_items_collected = [False for i in range(len(collectible_items))]
@@ -63,40 +64,24 @@ for i in range(500):
 collision_map = Actor("collision_map")
 last_move = "l"
 walkable_map = Actor("walkable_map")
-cat_health = 20
-max_cat_health = 20
 buttons = []
 game_over = False
-        
-class Inventory:
-    def __init__ (self, slots, entity):
-        self.slots = slots
-        self.entity = entity
-        self.item_num = 0
-        self.items = []
-    def drop(self, item, index):
-        self.item_num -= 1
-    def append(self, item, index):
-        try:
-            item.x = self.slots[self.item_num][0]
-            item.y = self.slots[self.item_num][1]
-            self.items.append(item)
-            item_num += 1
-        except Exception:
-            self.drop(item, index)
-class item(Actor):
-    def init(item_type, collected=False, hotbar_slot=0):
-        self.item_type = item_type
-        self.collected = collected
+collision_sprites = SpriteGroup()
+collision_sprites.AddSprite(collision_map)
+walkable_sprites = SpriteGroup()
+walkable_sprites.AddSprite(walkable_map)
 
 def draw():
-    if not game_over:
+    if game_over:
+        screen.draw.text("GAME OVER", (WIDTH//2, HEIGHT//2), fontsize=50)
+        retry_button.show()
+        retry_button.draw()
+    else:
         global camerascrollx
         global camerascrolly
         screen.fill(screen_background_color)
         walkable_map.pos = camerascrollx, camerascrolly
         walkable_map.draw()
-        water.draw()
         cat.draw()
         for i in trees:
             i.draw()
@@ -120,36 +105,21 @@ def draw():
     #        i.y = grass_map_model_pos[index][1]
         collision_map.x, collision_map.y = camerascrollx, camerascrolly
         collision_map.draw()
-        if collision_map.collidepoint_pixel(HEIGHT/2, WIDTH/2):
-            if last_move == "l":
-                camerascrollx -= 90
-            if last_move == "r":
-                camerascrollx += 90
-            if last_move == "u":
-                camerascrolly -= 90
-            if last_move == "d":
-                camerascrolly += 90
         screen.draw.text(f"Health:{cat_health}",(60, 20))
-    else:
-        screen.draw.text("GAME OVER", (WIDTH//2, HEIGHT//2), fontsize=50)
-        retry_button.show()
-        retry_button.draw()
     for i in buttons:
         if not i[2].hidden:
             i[2].draw()
 
 def update():
     global game_over
+    global camerascrollx
+    global camerascrolly
     for index, i in enumerate(trees):
         i.x = treepos[index][0] + camerascrollx
         i.y = treepos[index][1] + camerascrolly
-    
-    water.x = camerascrollx
-    water.y = camerascrolly
-    game_clock.angle = timer / day_in_millis + 180
-    if cat_health <= 0:
-        game_over = True
-    
+    game_over = check_game_over(cat_health)
+    camerascrollx, camerascrolly = move_collisions(
+        collision_sprites, last_move, MapPosition(WIDTH/2, HEIGHT/2), MapPosition(camerascrollx, camerascrolly))
     
 def on_key_down(key):
     global camerascrollx
@@ -170,7 +140,7 @@ def on_key_down(key):
         camerascrollx -= 90
         last_move = "r"
     if key == keys.P:
-        apples_data = pick_up_item(collectible_items, cat, collectible_items_collected)
+        apples_data = pick_up_item(collectible_items, cat, collectible_items_collected, inventory)
         apples = apples_data[0]
         apples_collected = apples_data[1]
         
@@ -243,23 +213,6 @@ def update_rabbit():
             sleep(1/30)
                 # print(saved_rabbit_pos)
 
-def update_counter():
-    global timer
-    global screen_background_color
-    global night_color
-    global background_color
-    while True:
-        sleep(1/100)
-        timer += 1
-        if game_clock.angle > 560:
-            game_clock.angle = 0
-        if game_clock.angle > 270:
-            screen_background_color = night_color
-        if game_clock.angle > 560-100:
-            screen_background_color = background_color
-        if timer == 360:
-            timer = 0
-
 inventory = Inventory(inventoryslots, inventoryactor)
 retry_button = Button("retry_button", (WIDTH//2, HEIGHT//2))
 
@@ -270,19 +223,8 @@ def retry():
     game_over = False
 retry_button.onclick(retry)
 
-def pick_up_item(items_actors,entity, items_collected):
-    for index, i in enumerate(items_actors):
-        if i.colliderect(entity):
-            if entity == cat:
-                inventory.append(i, index)
-                del items_actors[index]
-            else:
-                i.image = "cursor"
-            items_collected[index] = True
-    return [items_actors, items_collected]
-
 Thread(target=update_rabbit, daemon=True).start()
-Thread(target=update_counter, daemon=True).start()
+Thread(target=update_clock, daemon=True).start()
 
         
 go()
