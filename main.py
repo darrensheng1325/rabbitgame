@@ -11,6 +11,8 @@ from collision import move_collisions
 from clock import *
 from render_system_variables import MapPosition
 from pgzhelper import *
+from object_map import *
+from controls import update_player_movement
 
 HEIGHT = 750
 WIDTH = HEIGHT
@@ -24,7 +26,9 @@ hud = Actor("hud")
 trees = [Actor("tree") for i in range(150)]
 treepos = []
 rabbit = Actor("rabbit")
-rabbitpos = [{"x":randint(-MAP_SIZE, MAP_SIZE),"y":randint(-MAP_SIZE, MAP_SIZE), "has_rabbit":True} for i in range(25)]
+rabbitpos = []
+for i in rabbit_positions:
+    rabbitpos.append({"x":i[0],"y":i[1], "has_rabbit":True})
 # rabbitpos = [
 #     [0, 0],
 #     [90, 90],
@@ -48,15 +52,17 @@ rabbit_health = 10
 rabbit.pos = (10000, 10000)
 rabbit_model_pos = [0, 0]
 cat_model_pos = [0, 0]
-collectible_items = [Actor("apple") for i in range(len(trees)//2)]
+collectible_items = [item("item_0") for i in range(len(trees)//2)]
 collectible_items_model_pos = [[100000, 100000] for i in range(len(collectible_items))]
 collectible_items_collected = [False for i in range(len(collectible_items))]
 inventoryslots = []
 for i in range(25):
     inventoryslots.append([30*i+15, HEIGHT-30])
 for index, i in enumerate(collectible_items):
-    if randint(0, 1) == 1:
-        collectible_items_model_pos[index] = treepos[index]
+    try:
+        collectible_items_model_pos[index] = apple_positions[index]
+    except IndexError:
+        break    
 grass_map = [Actor("grass") for i in range(400)]
 grass_map_model_pos = [[10000, 10000] for i in range(500)]
 for i in range(500):
@@ -70,6 +76,8 @@ collision_sprites = SpriteGroup()
 collision_sprites.AddSprite(collision_map)
 walkable_sprites = SpriteGroup()
 walkable_sprites.AddSprite(walkable_map)
+DEBUG_MODE = False
+DEBUG_OUTPUT = []
 
 def draw():
     if game_over:
@@ -109,17 +117,21 @@ def draw():
     for i in buttons:
         if not i[2].hidden:
             i[2].draw()
+    if DEBUG_MODE:
+        screen.draw.text(f"DEBUG:{len(DEBUG_OUTPUT)}",(200, 20))
 
 def update():
     global game_over
     global camerascrollx
     global camerascrolly
+    global last_move
     for index, i in enumerate(trees):
         i.x = treepos[index][0] + camerascrollx
         i.y = treepos[index][1] + camerascrolly
     game_over = check_game_over(cat_health)
     camerascrollx, camerascrolly = move_collisions(
         collision_sprites, last_move, MapPosition(WIDTH/2, HEIGHT/2), MapPosition(camerascrollx, camerascrolly))
+    last_move, camerascrollx, camerascrolly = update_player_movement(camerascrollx, camerascrolly, last_move)
     
 def on_key_down(key):
     global camerascrollx
@@ -127,22 +139,15 @@ def on_key_down(key):
     global apples
     global apples_collected
     global last_move
-    if key == keys.UP:
-        camerascrolly += 90
-        last_move = "u"
-    if key == keys.DOWN:
-        camerascrolly -= 90
-        last_move = "d"
-    if key == keys.LEFT:
-        camerascrollx += 90
-        last_move = "l"
-    if key == keys.RIGHT:
-        camerascrollx -= 90
-        last_move = "r"
     if key == keys.P:
         apples_data = pick_up_item(collectible_items, cat, collectible_items_collected, inventory)
         apples = apples_data[0]
         apples_collected = apples_data[1]
+    if key == keys.S:
+        if DEBUG_MODE:
+            global DEBUG_OUTPUT
+            DEBUG_OUTPUT.append(cat_model_pos)
+
         
 
 def update_rabbit():
@@ -153,6 +158,7 @@ def update_rabbit():
     global rabbit_model_pos
     global rabbitpos
     global cat_health
+    global cat_model_pos
     while True:
         counter += 1
 #         cursor.x = rabbit.x + camerascrollx
@@ -228,4 +234,5 @@ Thread(target=update_clock, daemon=True).start()
 
         
 go()
-quit()
+print(DEBUG_OUTPUT)
+#quit()

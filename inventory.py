@@ -1,4 +1,4 @@
-from pgzhelper import Actor
+from pgzhelper import *
 from player import cat
 class Inventory:
     def __init__ (self, slots, entity):
@@ -18,9 +18,20 @@ class Inventory:
             self.drop(item, index)
 
 class item(Actor):
-    def init(item_type, collected=False, hotbar_slot=0):
-        self.item_type = item_type
-        self.collected = collected
+    def __init__(self, image, pos=POS_TOPLEFT, anchor=ANCHOR_CENTER, **kwargs):
+        self._flip_x = False
+        self._flip_y = False
+        self._scale = 1
+        self._mask = None
+        self._animate_counter = 0
+        self.fps = 5
+        self.direction = 0
+        self.item_type = 0
+        self.collected = False
+        super().__init__(image, pos, anchor, **kwargs)
+    def update_item_type(self, item_id):
+        self.item_type = item_id
+        self.image = f"item_{item_id}"
 
 def pick_up_item(items_actors, entity, items_collected, inventory):
     for index, i in enumerate(items_actors):
