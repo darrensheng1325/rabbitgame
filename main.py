@@ -13,18 +13,16 @@ from render_system_variables import MapPosition
 from pgzhelper import *
 from object_map import *
 from controls import update_player_movement
-
-HEIGHT = 750
-WIDTH = HEIGHT
-MAP_SIZE = 2700
+from items import *
+from environment import *
+from config import WIDTH, HEIGHT, MAP_SIZE
 
 from player import cat, max_cat_health
 
 cursor = Actor("cursor")
 inventoryactor = Actor("inventory")
 hud = Actor("hud")
-trees = [Actor("tree") for i in range(150)]
-treepos = []
+
 rabbit = Actor("rabbit")
 rabbitpos = []
 for i in rabbit_positions:
@@ -36,11 +34,6 @@ for i in rabbit_positions:
 #     #[-90, 90],
 # ]\
 saved_rabbit_pos = [0, 0]
-for i in trees:
-    i.x = randint(-MAP_SIZE, MAP_SIZE)
-    i.y = randint(-MAP_SIZE, MAP_SIZE)
-for i in trees:
-    treepos.append([i.x, i.y])
 water = Actor("water")
 cat.y = HEIGHT/2
 cat.x = WIDTH/2
@@ -52,17 +45,9 @@ rabbit_health = 10
 rabbit.pos = (10000, 10000)
 rabbit_model_pos = [0, 0]
 cat_model_pos = [0, 0]
-collectible_items = [item("item_0") for i in range(len(trees)//2)]
-collectible_items_model_pos = [[100000, 100000] for i in range(len(collectible_items))]
-collectible_items_collected = [False for i in range(len(collectible_items))]
 inventoryslots = []
 for i in range(25):
     inventoryslots.append([30*i+15, HEIGHT-30])
-for index, i in enumerate(collectible_items):
-    try:
-        collectible_items_model_pos[index] = apple_positions[index]
-    except IndexError:
-        break    
 grass_map = [Actor("grass") for i in range(400)]
 grass_map_model_pos = [[10000, 10000] for i in range(500)]
 for i in range(500):
@@ -76,7 +61,7 @@ collision_sprites = SpriteGroup()
 collision_sprites.AddSprite(collision_map)
 walkable_sprites = SpriteGroup()
 walkable_sprites.AddSprite(walkable_map)
-DEBUG_MODE = False
+DEBUG_MODE = True
 DEBUG_OUTPUT = []
 
 def draw():
@@ -99,13 +84,13 @@ def draw():
         if rabbit.colliderect(hud):
             rabbit.draw()
         game_clock.draw()
-        hud.draw()
-        for index, i in enumerate(collectible_items):
-            if not collectible_items_collected[index]:
-                i.x = collectible_items_model_pos[index][0] + camerascrollx
-                i.y = collectible_items_model_pos[index][1] + camerascrolly
-        for i in collectible_items:
-            i.draw()
+        for item_type, items in collectible_items.items():
+            for index, item in enumerate(items):
+                if not collectible_items_collected[index]:
+                    position = items_positions[item_type][index]
+                    item.x = position[0] + camerascrollx
+                    item.y = position[1] + camerascrolly
+                    item.draw()
         for i in inventory.items:
             i.draw()
     #    for index, i in enumerate(grass_map):
@@ -113,6 +98,7 @@ def draw():
     #        i.y = grass_map_model_pos[index][1]
         collision_map.x, collision_map.y = camerascrollx, camerascrolly
         collision_map.draw()
+        hud.draw()
         screen.draw.text(f"Health:{cat_health}",(60, 20))
     for i in buttons:
         if not i[2].hidden:
@@ -140,6 +126,7 @@ def on_key_down(key):
     global apples_collected
     global last_move
     if key == keys.P:
+        print(collectible_items)
         apples_data = pick_up_item(collectible_items, cat, collectible_items_collected, inventory)
         apples = apples_data[0]
         apples_collected = apples_data[1]
