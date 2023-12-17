@@ -2,7 +2,7 @@ from pgzrun import *
 from random import *
 from time import sleep
 from threading import Thread
-from buttons import *
+from buttons import Button, TextButton, mouse_cursor
 from sprite_groups import SpriteGroup
 from inventory import *
 from scoreboard import cat_health, check_game_over
@@ -16,8 +16,9 @@ from controls import update_player_movement
 from items import *
 from environment import *
 from config import WIDTH, HEIGHT, MAP_SIZE
-
 from player import cat, max_cat_health
+from save import write_save, load_save
+from menu import *
 
 cursor = Actor("cursor")
 inventoryactor = Actor("inventory")
@@ -61,50 +62,59 @@ collision_sprites = SpriteGroup()
 collision_sprites.AddSprite(collision_map)
 walkable_sprites = SpriteGroup()
 walkable_sprites.AddSprite(walkable_map)
-DEBUG_MODE = True
+DEBUG_MODE = False
 DEBUG_OUTPUT = []
+paused = False
 
 def draw():
-    if game_over:
-        screen.draw.text("GAME OVER", (WIDTH//2, HEIGHT//2), fontsize=50)
-        retry_button.show()
-        retry_button.draw()
+    if not paused:
+        if game_over:
+            screen.draw.text("GAME OVER", ((WIDTH//2)-75, (HEIGHT//2)-60), fontsize=50)
+            retry_button.show()
+            retry_button.draw()
+        else:
+            global camerascrollx
+            global camerascrolly
+            screen.fill(screen_background_color)
+            walkable_map.pos = camerascrollx, camerascrolly
+            walkable_map.draw()
+            cat.draw()
+            for i in trees:
+                i.draw()
+            rabbit.x = rabbit_model_pos[0] + camerascrollx
+            rabbit.y = rabbit_model_pos[1] + camerascrolly
+            
+            if rabbit.colliderect(hud):
+                rabbit.draw()
+            game_clock.draw()
+            for item_type, items in collectible_items.items():
+                for index, item in enumerate(items):
+                    if not collectible_items_collected[index]:
+                        position = items_positions[item_type][index]
+                        item.x = position[0] + camerascrollx
+                        item.y = position[1] + camerascrolly
+                        item.draw()
+            for i in inventory.items:
+                i.draw()
+        #    for index, i in enumerate(grass_map):
+        #        i.x = grass_map_model_pos[index][0]
+        #        i.y = grass_map_model_pos[index][1]
+            collision_map.x, collision_map.y = camerascrollx, camerascrolly
+            collision_map.draw()
+            hud.draw()
+            screen.draw.text(f"Health:{cat_health}",(60, 20))
+        for i in buttons:
+            if not i[2].hidden:
+                i[2].draw()
+        if DEBUG_MODE:
+            screen.draw.text(f"DEBUG:{len(DEBUG_OUTPUT)}",(200, 20))
     else:
-        global camerascrollx
-        global camerascrolly
-        screen.fill(screen_background_color)
-        walkable_map.pos = camerascrollx, camerascrolly
         walkable_map.draw()
-        cat.draw()
-        for i in trees:
-            i.draw()
-        rabbit.x = rabbit_model_pos[0] + camerascrollx
-        rabbit.y = rabbit_model_pos[1] + camerascrolly
-        
-        if rabbit.colliderect(hud):
-            rabbit.draw()
-        game_clock.draw()
-        for item_type, items in collectible_items.items():
-            for index, item in enumerate(items):
-                if not collectible_items_collected[index]:
-                    position = items_positions[item_type][index]
-                    item.x = position[0] + camerascrollx
-                    item.y = position[1] + camerascrolly
-                    item.draw()
-        for i in inventory.items:
-            i.draw()
-    #    for index, i in enumerate(grass_map):
-    #        i.x = grass_map_model_pos[index][0]
-    #        i.y = grass_map_model_pos[index][1]
-        collision_map.x, collision_map.y = camerascrollx, camerascrolly
         collision_map.draw()
-        hud.draw()
-        screen.draw.text(f"Health:{cat_health}",(60, 20))
-    for i in buttons:
-        if not i[2].hidden:
-            i[2].draw()
-    if DEBUG_MODE:
-        screen.draw.text(f"DEBUG:{len(DEBUG_OUTPUT)}",(200, 20))
+        screen.fill(screen_background_color)
+        draw_menu()
+    mouse_cursor.draw()
+        
 
 def update():
     global game_over
@@ -125,8 +135,8 @@ def on_key_down(key):
     global apples
     global apples_collected
     global last_move
+    global paused
     if key == keys.P:
-        print(collectible_items)
         apples_data = pick_up_item(collectible_items, cat, collectible_items_collected, inventory)
         apples = apples_data[0]
         apples_collected = apples_data[1]
@@ -134,6 +144,8 @@ def on_key_down(key):
         if DEBUG_MODE:
             global DEBUG_OUTPUT
             DEBUG_OUTPUT.append(cat_model_pos)
+    if key == keys.E:
+        paused=True
 
         
 
@@ -216,10 +228,14 @@ def retry():
     game_over = False
 retry_button.onclick(retry)
 
+def on_mouse_move(pos):
+    mouse_cursor.pos = pos
+
 Thread(target=update_rabbit, daemon=True).start()
 Thread(target=update_clock, daemon=True).start()
 
         
 go()
-print(DEBUG_OUTPUT)
+if DEBUG_MODE:
+    print(DEBUG_OUTPUT)
 #quit()

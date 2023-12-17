@@ -8,11 +8,11 @@ def move_collisions(collision_sprites, last_move, position, camerascroll):
     for collision_sprite in collision_sprites.sprites:
         if collision_sprite.collidepoint_pixel(position.x, position.y):
             if last_move == "l":
-                camerascrollx -= 90
+                camerascrollx -= 5
             if last_move == "r":
-                camerascrollx += 90
+                camerascrollx += 5
             if last_move == "u":
-                camerascrolly -= 90
+                camerascrolly -= 5
             if last_move == "d":
-                camerascrolly += 90
+                camerascrolly += 5
     return camerascrollx, camerascrolly
