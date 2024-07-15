@@ -5,18 +5,19 @@ from threading import Thread
 from buttons import Button, mouse_cursor
 from sprite_groups import SpriteGroup
 from inventory import Inventory, pick_up_item
-from scoreboard import cat_health, check_game_over
+from scoreboard import cat_health, check_game_over, Scoreboard
 from player import RabbitActor, max_cat_health
 from collision import move_collisions
 from clock import update_clock, screen_background_color, game_clock
 from render_system_variables import MapPosition
 from pgzhelper import Actor
-from controls import update_player_movement
+from controls import update_player_movement, cat_direction
 from items import items_positions, rabbit_positions, collectible_items, collectible_items_collected
 from environment import trees, treepos
 from config import WIDTH, HEIGHT, MAP_SIZE
 from player import cat, max_cat_health
 from menu import draw_menu
+from save import load_save, write_save
 go = pgzrun.go
 
 global keys
@@ -25,6 +26,7 @@ global screen
 cursor = Actor("cursor")
 inventoryactor = Actor("inventory")
 hud = Actor("hud")
+picture = Actor("water")
 # rabbit = Actor("rabbit")
 rabbit = RabbitActor()
 rabbitpos = []
@@ -62,9 +64,13 @@ collision_sprites = SpriteGroup()
 collision_sprites.AddSprite(collision_map)
 walkable_sprites = SpriteGroup()
 walkable_sprites.AddSprite(walkable_map)
-DEBUG_MODE = False
+DEBUG_MODE = True
 DEBUG_OUTPUT = []
 paused = False
+picture.scale = 0.001
+picture.x = WIDTH / 2
+picture.y = HEIGHT / 2
+scoreboard = Scoreboard()
 
 def draw_map(camerascrollx, camerascrolly):
     walkable_map.pos = camerascrollx, camerascrolly
@@ -111,12 +117,16 @@ def draw_game_over():
 
 def draw_debug():
     screen.draw.text(f"Health:{cat_health}",(60, 20))
+    screen.draw.text(f"Score:{scoreboard.score}", (60, 40))
     for i in buttons:
         if not i[2].hidden:
             i[2].draw()
     if DEBUG_MODE:
         screen.draw.text(f"DEBUG:{len(DEBUG_OUTPUT)}",(200, 20))
-    mouse_cursor.draw()    
+    mouse_cursor.draw()
+
+def draw_splash_screens():
+    picture.draw()    
 
 def draw():
     if paused:
@@ -133,22 +143,35 @@ def draw():
     draw_entities(camerascrollx, camerascrolly, rabbit_model_pos)
     draw_inventory()
     draw_debug()
-#    for index, i in enumerate(grass_map):
-#        i.x = grass_map_model_pos[index][0]
-#        i.y = grass_map_model_pos[index][1]    
+    draw_splash_screens()
 
 def update():
     global game_over
     global camerascrollx
     global camerascrolly
     global last_move
+    global cat_direction
     for index, i in enumerate(trees):
         i.x = treepos[index][0] + camerascrollx
         i.y = treepos[index][1] + camerascrolly
     game_over = check_game_over(cat_health)
     camerascrollx, camerascrolly = move_collisions(
         collision_sprites, last_move, MapPosition(WIDTH/2, HEIGHT/2), MapPosition(camerascrollx, camerascrolly))
-    last_move, camerascrollx, camerascrolly = update_player_movement(camerascrollx, camerascrolly, last_move)
+    last_move, camerascrollx, camerascrolly, cat_direction = update_player_movement(camerascrollx, camerascrolly, last_move, cat_direction)
+    if cat_direction:
+        cat.angle = 180
+    else:
+        cat.angle = 0
+    if scoreboard.score == 50:
+        print("game completed")
+        print("  +    +   ")
+        print("  +    +   ")
+        print("  ######   ")
+        print(" ##o##o##  ")
+        print("  ######   ")
+        print("  |    |   ")
+        print("  |    |   ")
+        quit()
     
 def on_key_down(key):
     global camerascrollx
@@ -157,8 +180,9 @@ def on_key_down(key):
     global apples_collected
     global last_move
     global paused
+    global score
     if key == keys.P:
-        apples_data = pick_up_item(collectible_items, cat, collectible_items_collected, inventory)
+        apples_data, scoreboard.score = pick_up_item(collectible_items, cat, collectible_items_collected, inventory, scoreboard.score)
         apples = apples_data[0]
         apples_collected = apples_data[1]
     if key == keys.S:
@@ -167,6 +191,10 @@ def on_key_down(key):
             DEBUG_OUTPUT.append(cat_model_pos)
     if key == keys.E:
         paused=True
+    if key == keys.T:
+        picture.scale = 1
+    else:
+        picture.scale = 0.001
 
         
 
@@ -179,6 +207,7 @@ def update_rabbit():
     global rabbitpos
     global cat_health
     global cat_model_pos
+    global apples
     while True:
         counter += 1
 #         cursor.x = rabbit.x + camerascrollx
@@ -232,6 +261,10 @@ def update_rabbit():
                 rabbit_health = 10
                 rabbit.x = 10000
                 rabbitpos[counter]["has_rabbit"] = False
+                apple = Actor("apple")
+                collectible_items["apples"].append(apple)
+                items_positions["apples"].append([rabbit_model_pos[0], rabbit_model_pos[1]])
+                scoreboard.increment()
                 break
             saved_rabbit_pos = rabbit_model_pos
             if not 0 < rabbit.y < HEIGHT or not 0 < rabbit.x < HEIGHT:

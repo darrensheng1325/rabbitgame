@@ -33,14 +33,15 @@ class item(Actor):
         self.item_type = item_id
         self.image = f"item_{item_id}"
 
-def pick_up_item(items_actors, entity, items_collected, inventory):
+def pick_up_item(items_actors, entity, items_collected, inventory, score):
     for item_type, items in items_actors.items():
         for i, item in enumerate(items):
             if item.colliderect(entity):
                 if entity == cat:
                     inventory.append(item, i)
+                    score += 1
                     del items[i]
                 else:
                     item.image = "cursor"
                 items_collected[i] = True
-    return [items_actors, items_collected]
+    return [items_actors, items_collected], score
