@@ -11,7 +11,7 @@ from collision import move_collisions
 from clock import update_clock, screen_background_color, game_clock
 from render_system_variables import MapPosition
 from pgzhelper import Actor
-from controls import update_player_movement, cat_direction
+from controls import update_player_movement
 from items import items_positions, rabbit_positions, collectible_items, collectible_items_collected
 from environment import trees, treepos
 from config import WIDTH, HEIGHT, MAP_SIZE
@@ -71,6 +71,7 @@ picture.scale = 0.001
 picture.x = WIDTH / 2
 picture.y = HEIGHT / 2
 scoreboard = Scoreboard()
+cat_direction = False
 
 def draw_map(camerascrollx, camerascrolly):
     walkable_map.pos = camerascrollx, camerascrolly
